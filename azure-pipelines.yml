@@ -1,0 +1,49 @@
+# azure-pipelines.yml
+trigger:
+  branches:
+    include:
+      - main  # Specify the branch you want to trigger the pipeline on
+
+pool:
+  vmImage: 'ubuntu-latest'  # Use an Ubuntu image
+
+variables:
+  node_version: '20.17.0'  # Set the Node.js version
+  azureSubscription: ' dev.azure.com/Kalyanupadhayayula'  # Azure subscription name linked in Azure DevOps
+  appServiceName: 'angularapplication'  # Your Azure App Service name
+  appLocation: 'D:\Angular\dist'  # Path to the build output of your Angular application
+
+steps:
+  - task: UseNode@1
+    inputs:
+      versionSpec: $(node_version)
+    displayName: 'Install Node.js'
+
+  - script: |
+      npm install -g @angular/cli  # Install Angular CLI
+      npm install                   # Install dependencies
+    displayName: 'Install Dependencies'
+
+  - script: |
+      ng build --prod              # Build the Angular app for production
+    displayName: 'Build Angular App'
+
+  - task: ArchiveFiles@2
+    inputs:
+      rootFolderOrFile: '$(appLocation)'   # Archive the build folder
+      includeRootFolder: false
+      archiveType: 'zip'
+      archiveFile: '$(Build.ArtifactStagingDirectory)/angular-app.zip'
+    displayName: 'Archive Angular App'
+
+  - publish: $(Build.ArtifactStagingDirectory)/angular-app.zip
+    artifact: angular_app
+    displayName: 'Publish Build Artifact'
+
+  - task: AzureWebApp@1
+    inputs:
+      azureSubscription: $(azureSubscription)
+      appType: 'webApp'
+      appName: $(appServiceName)
+      package: $(Build.ArtifactStagingDirectory)/angular-app.zip
+    displayName: 'Deploy to Azure App Service'
